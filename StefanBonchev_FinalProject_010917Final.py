@@ -27,13 +27,19 @@ Indexes to be used:
 
 
 #Importing Necessary Modules
+import fix_yahoo_finance as yf
+import numpy as np
+import scipy.stats as stats
+from scipy.stats import kurtosis, skew
+import pylab
+import matplotlib.pyplot as plt
+import pandas as pd 
 
 #[1]Fetching end of day data for the last 25 years for the four indexes in play
 """This module downloads Market Indexes data from Yahoo Finance. For the purpose of our project we are
 going to use S&P 500 (^GSPC), DAX (^GDAXI) and 
 Footsie 100 (^FTSE)."""
 
-import fix_yahoo_finance as yf
 
 SP500 = yf.download('^GSPC', start="1991-08-01", end="2017-08-01")
 DAX = yf.download('^GDAXI', start="1991-08-01", end="2017-08-01")
@@ -44,25 +50,18 @@ KOSPI = yf.download('^KOSPI', start="1991-08-01", end="2017-08-01")
 """When we look at the descriptive statistics of the index prices when can make a judgement
  on the basis of their histograms, skewness, kurtosis and variance whether their distribution is log normal or normal"""
 
-import numpy as np
-import scipy.stats as stats
-from scipy.stats import kurtosis, skew
-import pylab 
-
 #calculating the descriptive stats for the indexes
 scipy.stats.mstats.normaltest(SP500, DAX, FTSE, KOSPI, axis=0)
-scipy.stats.skewtest(SP500, DAX, FTSE, KOSPI, axis=0)
-scipy.stats.kurtosistest(SP500, DAX, FTSE, KOSPI, axis=0)
+skew = scipy.stats.skewtest(SP500, DAX, FTSE, KOSPI, axis=0)
+kurtosis = scipy.stats.kurtosistest(SP500, DAX, FTSE, KOSPI, axis=0)
 
 print("mean : ", np.mean(SP500, DAX, FTSE, KOSPI))
 print("var  : ", np.var(SP500, DAX, FTSE, KOSPI))
-print("skew : ",skew(SP500, DAX, FTSE, KOSPI))
-print("kurt : ",kurtosis(SP500, DAX, FTSE, KOSPI))
+print("skew : ", skew(SP500, DAX, FTSE, KOSPI))
+print("kurt : ", kurtosis(SP500, DAX, FTSE, KOSPI))
 
 #Plotting histograms with the prices of the indexes
 """ Creating a reusable function for plotting histograms with the MatplotLib Package for python"""
-
-import matplotlib.pyplot as plt
 
 def index_histogram(index, bins=10, rot=90, align='center', color='green', title='')
 
@@ -103,7 +102,6 @@ index_QQ(KOSPI, color='blue', title='QQ Plot for the Prices of S&P500')
 
 #[3]Calculation of Returns for the given indexes and looking at their descriptive stats and histgrams
 """ Calculating the yearly returns from 1920 onwards using the numpy library."""
-import numpy as np
 
 if __Returns__ == '__Returns__':
     def calcReturn(ticker,begdate,enddate):
@@ -146,13 +144,14 @@ if __Returns__ == '__Returns__':
 
 #calculating the descriptive stats for the return on the indexes
 scipy.stats.mstats.normaltest(SP500return, DAXreturn, FTSEreturn, KOSPIreturn, axis=0)
-scipy.stats.skewtest(SP500return, DAXreturn, FTSEreturn, KOSPIreturn, axis=0)
-scipy.stats.kurtosistest(SP500return, DAXreturn, FTSEreturn, KOSPIreturn, axis=0)
+skewR = scipy.stats.skewtest(SP500return, DAXreturn, FTSEreturn, KOSPIreturn, axis=0)
+kurtosis4 = scipy.stats.kurtosistest(SP500return, DAXreturn, FTSEreturn, KOSPIreturn, axis=0)
 
+print("SD : ", np.std(SP500return, DAXreturn, FTSEreturn, KOSPIreturn))
 print("mean : ", np.mean(SP500return, DAXreturn, FTSEreturn, KOSPIreturn))
 print("var  : ", np.var(SP500return, DAXreturn, FTSEreturn, KOSPIreturn))
-print("skew : ",skew(SP500return, DAXreturn, FTSEreturn, KOSPIreturn))
-print("kurt : ",kurtosis(SP500return, DAXreturn, FTSEreturn, KOSPIreturn))
+print("skew : ",skewR(SP500return, DAXreturn, FTSEreturn, KOSPIreturn))
+print("kurt : ",kurtosisR(SP500return, DAXreturn, FTSEreturn, KOSPIreturn))
 
 #Plotting Histograms and QQ plots for the return on the indexes
 #Histograms
@@ -168,69 +167,35 @@ index_QQ(FTSEreturn, color='yellow', title='QQ Plot for the Prices of S&P500')
 index_QQ(KOSPIreturn, color='blue', title='QQ Plot for the Prices of S&P500')
 
 #Geometric Brownian motion and stock crash probability
-#EXAMPLE
-class Option(object):
-    """Compute European option value, greeks, and implied volatility.
 
-    Parameters
-    ==========
-    S0 : int or float
-        initial asset value
-    K : int or float
-        strike
-    T : int or float
-        time to expiration as a fraction of one year
-    r : int or float
-        continuously compounded risk free rate, annualized
-    sigma : int or float
-        continuously compounded standard deviation of returns
-    kind : str, {'call', 'put'}, default 'call'
-        type of option
+mu=1
+n=50
+dt=0.1
+x0=100
+x=pd.DataFrame(SP500return, DAXreturn, FTSEreturn, KOSPIreturn)
+np.random.seed(10000)
 
-    Resources
-    =========
-    http://www.thomasho.com/mainpages/?download=&act=model&file=256
-    """
+for sigma in np.arange(0.8,2,0.2):
+    step=np.exp((mu-sigma**2/2)*dt)*np.exp(sigma*np.random.normal(0,dt,(1,n)))
+    temp=pd.DataFrame(x0*step.cumprod())
+    x=pd.concat([x,temp],axis=1)
 
-    def __init__(self, S0, K, T, r, sigma, kind='call'):
-        if kind.istitle():
-            kind = kind.lower()
-        if kind not in ['call', 'put']:
-            raise ValueError('Option type must be \'call\' or \'put\'')
-
-        self.kind = kind
-        self.S0 = S0
-        self.K = K
-        self.T = T
-        self.r = r
-        self.sigma = sigma
-
-        self.d1 = ((np.log(self.S0 / self.K)
-                + (self.r + 0.5 * self.sigma ** 2) * self.T)
-                / (self.sigma * np.sqrt(self.T)))
-        self.d2 = ((np.log(self.S0 / self.K)
-                + (self.r - 0.5 * self.sigma ** 2) * self.T)
-                / (self.sigma * np.sqrt(self.T)))
-
-        # Several greeks use negated terms dependent on option type
-        # For example, delta of call is N(d1) and delta put is N(d1) - 1
-        self.sub = {'call' : [0, 1, -1], 'put' : [-1, -1, 1]}
-
-    def value(self):
-        """Compute option value."""
-        return (self.sub[self.kind][1] * self.S0
-               * norm.cdf(self.sub[self.kind][1] * self.d1, 0.0, 1.0)
-               + self.sub[self.kind][2] * self.K * np.exp(-self.r * self.T)
-               * norm.cdf(self.sub[self.kind][1] * self.d2, 0.0, 1.0))
-option.value()
+x.columns=np.arange(0.8,2,0.2)
+plt.plot(x)
+plt.legend(x.columns)
+plt.xlabel('t')
+plt.ylabel('X')
+plt.title('Realizations of Geometric Brownian motion with difference variances\n mu=1')
+plt.show()
 
 #Calculating and plotting fractals for the last 10 years for NASDAQ 
-#EXAMPLES
-import numpy as np
-import matplotlib.cm as cm
-from matplotlib import pyplot as plt
+""" Using the Mandelbrotian Fractals analysis on the NASDAQ Index data to test for unsual risk levels"""
 
-def iter_count(C, max_iter):
+#Fetching the Market Index data for NASDAQ from Yahoo Finance
+NASDAQ = yf.download('^IXIC', start="2007-08-01", end="2017-08-01")
+
+
+def NASDAQ_Frac(C, NASDAQ):
     X = C
     for n in range(max_iter):
     if abs(X) > 2.:
